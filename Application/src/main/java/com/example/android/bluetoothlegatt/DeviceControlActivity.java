@@ -45,6 +45,32 @@ import java.util.List;
  * communicates with {@code BluetoothLeService}, which in turn interacts with the
  * Bluetooth LE API.
  */
+/**
+ * author sunupo
+ * date 2019/1/24 16:49
+ * description 
+ * 
+ */
+
+/**
+ * DeviceControlActivity的onCreate()中通过
+ * Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
+ * bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+ * 绑定了服务，进去
+ * ServiceConnection的onServiceConnected()方法,得到BluetoothService的句柄mBluetoothLeService
+ * mBluetoothLeService调用BluetoothService的connect(mDeviceAddress)方法
+ * 在connect中，根据address得到BluetoothDevice对象device
+ * 通过mBluetoothGatt = device.connectGatt(this, false, mGattCallback);得到BluetoothGatt对象mBluetoothGatt
+ * mBluetoothGatt的回调接口mGattCallback
+ * 首先进入GattCallback.onConnectionStateChange()方法，
+ *      A、连接成功执行mBluetoothGatt.discoverServices())，该类的广播接收器收到广播，执行相应操作
+ *      B、失败执行broadcastUpdate(intentAction); intentAction = ACTION_GATT_DISCONNECTED;
+ *假设连接成功，进入GattCallback.onServicesDiscovered()方法,
+ *      A、未发现服务，可以再日志中输出调试信息
+ *      B、发现存在服务，执行broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);该类的广播接收器收到广播，
+ *      执行displayGattServices(mBluetoothLeService.getSupportedGattServices());把结果显示在列表中
+ */
+
 public class DeviceControlActivity extends Activity {
     private final static String TAG = DeviceControlActivity.class.getSimpleName();
 
@@ -53,19 +79,26 @@ public class DeviceControlActivity extends Activity {
 
     private TextView mConnectionState;
     private TextView mDataField;
+
     private String mDeviceName;
     private String mDeviceAddress;
+
     private ExpandableListView mGattServicesList;
-    private BluetoothLeService mBluetoothLeService;
+
+    private BluetoothLeService mBluetoothLeService;//自定义service
+
     private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics =
             new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
+
     private boolean mConnected = false;
+
     private BluetoothGattCharacteristic mNotifyCharacteristic;
 
     private final String LIST_NAME = "NAME";
     private final String LIST_UUID = "UUID";
 
     // Code to manage Service lifecycle.
+    //bindService是在onCreate中调用的，随即mServiceConnection的onServiceConnected()方法被调用
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
         @Override
@@ -249,30 +282,42 @@ public class DeviceControlActivity extends Activity {
         String uuid = null;
         String unknownServiceString = getResources().getString(R.string.unknown_service);
         String unknownCharaString = getResources().getString(R.string.unknown_characteristic);
+
+        //new SimpleExpandableListAdapter需要这两个参数gattServiceData、gattCharacteristicData
         ArrayList<HashMap<String, String>> gattServiceData = new ArrayList<HashMap<String, String>>();
         ArrayList<ArrayList<HashMap<String, String>>> gattCharacteristicData
                 = new ArrayList<ArrayList<HashMap<String, String>>>();
+        //mGattCharacteristics与gattCharacteristicData大小相同，只是<>类型不一样
         mGattCharacteristics = new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
 
+
         // Loops through available GATT Services.
+        //得到了多个服务
         for (BluetoothGattService gattService : gattServices) {
             HashMap<String, String> currentServiceData = new HashMap<String, String>();
             uuid = gattService.getUuid().toString();
             currentServiceData.put(
                     LIST_NAME, SampleGattAttributes.lookup(uuid, unknownServiceString));
             currentServiceData.put(LIST_UUID, uuid);
+            //每个服务对应一个可折叠项，一个可折叠项使用的两个TextView对应的(simple_expandable_list_item_2)
+            //一个是服务名字，一个是服务对应的UUID
             gattServiceData.add(currentServiceData);
 
+            //该服务service折叠项对应的二级菜单数据
             ArrayList<HashMap<String, String>> gattCharacteristicGroupData =
                     new ArrayList<HashMap<String, String>>();
+            //该服务service对应的多个Characteristic，gattService.getCharacteristics()返回的就是一个列表
             List<BluetoothGattCharacteristic> gattCharacteristics =
                     gattService.getCharacteristics();
+            //用charas来记录上面的gattCharacteristics对应的一组值
+            //并把这一组值charas添加到mGattCharacteristics
+            //可能是因为无法直接把List加入add到mGattCharacteristics
             ArrayList<BluetoothGattCharacteristic> charas =
                     new ArrayList<BluetoothGattCharacteristic>();
 
             // Loops through available Characteristics.
             for (BluetoothGattCharacteristic gattCharacteristic : gattCharacteristics) {
-                charas.add(gattCharacteristic);
+                charas.add(gattCharacteristic);//用charas来记录上面的gattCharacteristics对应的一组值
                 HashMap<String, String> currentCharaData = new HashMap<String, String>();
                 uuid = gattCharacteristic.getUuid().toString();
                 currentCharaData.put(
@@ -280,14 +325,14 @@ public class DeviceControlActivity extends Activity {
                 currentCharaData.put(LIST_UUID, uuid);
                 gattCharacteristicGroupData.add(currentCharaData);
             }
-            mGattCharacteristics.add(charas);
+            mGattCharacteristics.add(charas);//并把这一组值charas添加到mGattCharacteristics
             gattCharacteristicData.add(gattCharacteristicGroupData);
         }
 
         SimpleExpandableListAdapter gattServiceAdapter = new SimpleExpandableListAdapter(
                 this,
-                gattServiceData,
-                android.R.layout.simple_expandable_list_item_2,
+                gattServiceData,//LIST_NAME, LIST_UUID在gattServiceData有定义
+                android.R.layout.simple_expandable_list_item_2,//android.R.id.text1, android.R.id.text2在这个文件有定义
                 new String[] {LIST_NAME, LIST_UUID},
                 new int[] { android.R.id.text1, android.R.id.text2 },
                 gattCharacteristicData,

@@ -45,13 +45,14 @@ public class BluetoothLeService extends Service {
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
     private String mBluetoothDeviceAddress;
-    private BluetoothGatt mBluetoothGatt;
+    private BluetoothGatt mBluetoothGatt;//这样得到mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
     private int mConnectionState = STATE_DISCONNECTED;
 
     private static final int STATE_DISCONNECTED = 0;
     private static final int STATE_CONNECTING = 1;
     private static final int STATE_CONNECTED = 2;
 
+    //DeviceControlActivity有一个动态广播接收下面这些数据
     public final static String ACTION_GATT_CONNECTED =
             "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
     public final static String ACTION_GATT_DISCONNECTED =
@@ -68,6 +69,13 @@ public class BluetoothLeService extends Service {
 
     // Implements callback methods for GATT events that the app cares about.  For example,
     // connection change and services discovered.
+    /**
+     * 在后面会用
+     * BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);//这种方法过时了，新的用法好像是用ScanResultAdapter来得到device
+     * mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
+     */
+    //本机是一个client，去监听GATT服务器发送的数据，gattserver应该要声明BluetoothGattServer和BluetoothGattServerCallback
+
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
@@ -78,6 +86,9 @@ public class BluetoothLeService extends Service {
                 broadcastUpdate(intentAction);
                 Log.i(TAG, "Connected to GATT server.");
                 // Attempts to discover services after successful connection.
+                /**
+                 * Gatt发现服务mBluetoothGatt.discoverServices());
+                 */
                 Log.i(TAG, "Attempting to start service discovery:" +
                         mBluetoothGatt.discoverServices());
 
@@ -107,6 +118,7 @@ public class BluetoothLeService extends Service {
             }
         }
 
+        //Callback triggered as a result of a remote characteristic notification.
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic characteristic) {
@@ -114,6 +126,7 @@ public class BluetoothLeService extends Service {
         }
     };
 
+    //发送广播到字符串制定的action
     private void broadcastUpdate(final String action) {
         final Intent intent = new Intent(action);
         sendBroadcast(intent);
@@ -127,7 +140,7 @@ public class BluetoothLeService extends Service {
         // carried out as per profile specifications:
         // http://developer.bluetooth.org/gatt/characteristics/Pages/CharacteristicViewer.aspx?u=org.bluetooth.characteristic.heart_rate_measurement.xml
         if (UUID_HEART_RATE_MEASUREMENT.equals(characteristic.getUuid())) {
-            int flag = characteristic.getProperties();
+            int flag = characteristic.getProperties();//The properties contain a bit mask of property flags indicating the features of this characteristic.
             int format = -1;
             if ((flag & 0x01) != 0) {
                 format = BluetoothGattCharacteristic.FORMAT_UINT16;
@@ -226,7 +239,10 @@ public class BluetoothLeService extends Service {
                 return false;
             }
         }
-
+        //检查MAC地址是否全部为大写
+      if(!BluetoothAdapter.checkBluetoothAddress(address) ){
+          return false;
+      }
         final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
         if (device == null) {
             Log.w(TAG, "Device not found.  Unable to connect.");
@@ -234,6 +250,9 @@ public class BluetoothLeService extends Service {
         }
         // We want to directly connect to the device, so we are setting the autoConnect
         // parameter to false.
+//        Whether to directly connect to the remote device (false)
+//        or to automatically connect as soon as the remote
+//        device becomes available (true).
         mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
         Log.d(TAG, "Trying to create a new connection.");
         mBluetoothDeviceAddress = address;
