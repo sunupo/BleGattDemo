@@ -41,6 +41,15 @@ import java.util.ArrayList;
 /**
  * Activity for scanning and displaying available Bluetooth LE devices.
  */
+/**
+ * DeviceScanActivity的onResume()方法中开始扫描设备device，scanLeDevice(true);
+ * 在scanDevice(true)中通过mBluetoothAdapter.stopLeScan(mLeScanCallback);
+ * mLeScanCallback回调接口中结果保存在接口onLeScan的方法的三个参数中onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord)
+ * 自定义的结果列表适配器适配器把扫描到的结果设备device添加进去mLeDeviceListAdapter.addDevice(device);
+ * 再调用mLeDeviceListAdapter.notifyDataSetChanged();//如果适配器的内容改变时需要强制调用getView来刷新每个Item的内容。
+ * 因为继承自ListActivity，有一个onListItemClick方法，把设备NAME和ADDRESS传入到下一个DeviceScanActivity
+ * DeviceScanActivity就可以使用getRemoteBluetoothDevice(String address);得到一个BluetoothDevice
+ * */
 public class DeviceScanActivity extends ListActivity {
     private LeDeviceListAdapter mLeDeviceListAdapter;
     private BluetoothAdapter mBluetoothAdapter;
@@ -123,6 +132,9 @@ public class DeviceScanActivity extends ListActivity {
 
         // Initializes list view adapter.
         mLeDeviceListAdapter = new LeDeviceListAdapter();
+        /**
+         *         setListAdapter(mLeDeviceListAdapter);
+         */
         setListAdapter(mLeDeviceListAdapter);
         scanLeDevice(true);
     }
@@ -255,7 +267,7 @@ public class DeviceScanActivity extends ListActivity {
                 @Override
                 public void run() {
                     mLeDeviceListAdapter.addDevice(device);
-                    mLeDeviceListAdapter.notifyDataSetChanged();
+                    mLeDeviceListAdapter.notifyDataSetChanged();//如果适配器的内容改变时需要强制调用getView来刷新每个Item的内容。
                 }
             });
         }
